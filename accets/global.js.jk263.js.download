@@ -1,0 +1,311 @@
+﻿// number helper
+Number.prototype.format = function Number$format(formatString) {
+    /// <summary locid="M:J#Number.format" />
+    /// <param name="format" type="String"></param>
+    /// <returns type="String"></returns>   
+    return this._toFormattedString(formatString);
+};
+Number.prototype._toFormattedString = function Number$_toFormattedString(formatString) {
+    if (!formatString || (formatString.length === 0) || (formatString === 'i')) {
+        return this.toString();
+    }
+
+    var _percentPositivePattern = ["n %", "n%", "%n"];
+    var _percentNegativePattern = ["-n %", "-n%", "-%n"];
+    var _numberNegativePattern = ["(n)", "-n", "- n", "n-", "n -"];
+    var _currencyPositivePattern = ["$n", "n$", "$ n", "n $"];
+    var _currencyNegativePattern = ["($n)", "-$n", "$-n", "$n-", "(n$)", "-n$", "n-$", "n$-", "-n $", "-$ n", "n $-", "$ n-", "$ -n", "n- $", "($ n)", "(n $)"];
+    function zeroPad(str, count, left) {
+        for (var l = str.length; l < count; l++) {
+            str = (left ? ('0' + str) : (str + '0'));
+        }
+        return str;
+    }
+
+    function expandNumber(number, precision, groupSizes, sep, decimalChar) {
+        var curSize = groupSizes[0];
+        var curGroupIndex = 1;
+        var factor = Math.pow(10, precision);
+        var rounded = (Math.round(number * factor) / factor);
+        if (!isFinite(rounded)) {
+            rounded = number;
+        }
+        number = rounded;
+
+        var numberString = number.toString();
+        var right = "";
+        var exponent;
+
+
+        var split = numberString.split(/e/i);
+        numberString = split[0];
+        exponent = (split.length > 1 ? parseInt(split[1]) : 0);
+        split = numberString.split('.');
+        numberString = split[0];
+        right = split.length > 1 ? split[1] : "";
+
+        var l;
+        if (exponent > 0) {
+            right = zeroPad(right, exponent, false);
+            numberString += right.slice(0, exponent);
+            right = right.substr(exponent);
+        }
+        else if (exponent < 0) {
+            exponent = -exponent;
+            numberString = zeroPad(numberString, exponent + 1, true);
+            right = numberString.slice(-exponent, numberString.length) + right;
+            numberString = numberString.slice(0, -exponent);
+        }
+        if (precision > 0) {
+            if (right.length > precision) {
+                right = right.slice(0, precision);
+            }
+            else {
+                right = zeroPad(right, precision, false);
+            }
+            right = decimalChar + right;
+        }
+        else {
+            right = "";
+        }
+        var stringIndex = numberString.length - 1;
+        var ret = "";
+        while (stringIndex >= 0) {
+            if (curSize === 0 || curSize > stringIndex) {
+                if (ret.length > 0)
+                    return numberString.slice(0, stringIndex + 1) + sep + ret + right;
+                else
+                    return numberString.slice(0, stringIndex + 1) + right;
+            }
+            if (ret.length > 0)
+                ret = numberString.slice(stringIndex - curSize + 1, stringIndex + 1) + sep + ret;
+            else
+                ret = numberString.slice(stringIndex - curSize + 1, stringIndex + 1);
+            stringIndex -= curSize;
+            if (curGroupIndex < groupSizes.length) {
+                curSize = groupSizes[curGroupIndex];
+                curGroupIndex++;
+            }
+        }
+        return numberString.slice(0, stringIndex + 1) + sep + ret + right;
+    }
+    var nf = { "CurrencyDecimalDigits": 2, "CurrencyDecimalSeparator": ".", "IsReadOnly": true, "CurrencyGroupSizes": [3], "NumberGroupSizes": [3], "PercentGroupSizes": [3], "CurrencyGroupSeparator": ",", "CurrencySymbol": "\u00A4", "NaNSymbol": "NaN", "CurrencyNegativePattern": 0, "NumberNegativePattern": 1, "PercentPositivePattern": 0, "PercentNegativePattern": 0, "NegativeInfinitySymbol": "-Infinity", "NegativeSign": "-", "NumberDecimalDigits": 2, "NumberDecimalSeparator": ".", "NumberGroupSeparator": ",", "CurrencyPositivePattern": 0, "PositiveInfinitySymbol": "Infinity", "PositiveSign": "+", "PercentDecimalDigits": 2, "PercentDecimalSeparator": ".", "PercentGroupSeparator": ",", "PercentSymbol": "%", "PerMilleSymbol": "\u2030", "NativeDigits": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], "DigitSubstitution": 1 };
+    var number = Math.abs(this);
+    if (!formatString)
+        formatString = "D";
+    var precision = -1;
+    if (formatString.length > 1) precision = parseInt(formatString.slice(1), 10);
+    var pattern;
+    switch (formatString[0]) {
+        case "d":
+        case "D":
+            pattern = 'n';
+            if (precision !== -1) {
+                number = zeroPad("" + number, precision, true);
+            }
+            if (this < 0) number = -number;
+            break;
+        case "c":
+        case "C":
+            if (this < 0) pattern = _currencyNegativePattern[nf.CurrencyNegativePattern];
+            else pattern = _currencyPositivePattern[nf.CurrencyPositivePattern];
+            if (precision === -1) precision = nf.CurrencyDecimalDigits;
+            number = expandNumber(Math.abs(this), precision, nf.CurrencyGroupSizes, nf.CurrencyGroupSeparator, nf.CurrencyDecimalSeparator);
+            break;
+        case "n":
+        case "N":
+            if (this < 0) pattern = _numberNegativePattern[nf.NumberNegativePattern];
+            else pattern = 'n';
+            if (precision === -1) precision = nf.NumberDecimalDigits;
+            number = expandNumber(Math.abs(this), precision, nf.NumberGroupSizes, nf.NumberGroupSeparator, nf.NumberDecimalSeparator);
+            break;
+        case "p":
+        case "P":
+            if (this < 0) pattern = _percentNegativePattern[nf.PercentNegativePattern];
+            else pattern = _percentPositivePattern[nf.PercentPositivePattern];
+            if (precision === -1) precision = nf.PercentDecimalDigits;
+            number = expandNumber(Math.abs(this) * 100, precision, nf.PercentGroupSizes, nf.PercentGroupSeparator, nf.PercentDecimalSeparator);
+            break;
+        default:
+            throw "Invalid format string!";
+    }
+    var regex = /n|\$|-|%/g;
+    var ret = "";
+    for (; ;) {
+        var index = regex.lastIndex;
+        var ar = regex.exec(pattern);
+        ret += pattern.slice(index, ar ? ar.index : pattern.length);
+        if (!ar)
+            break;
+        switch (ar[0]) {
+            case "n":
+                ret += number;
+                break;
+            case "$":
+                ret += nf.CurrencySymbol;
+                break;
+            case "-":
+                if (/[1-9]/.test(number)) {
+                    ret += nf.NegativeSign;
+                }
+                break;
+            case "%":
+                ret += nf.PercentSymbol;
+                break;
+        }
+    }
+    return ret;
+};
+// end number helper
+
+$.urlParam = function (name) {
+    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+    if (results)
+        return results[1] || 0;
+    return '';
+};
+
+var btnQrCodes = $('a[data-qrcode-id]');
+var qrCodeIdsStr = '';
+var qrCodeIds = [];
+btnQrCodes.each((idx, btn) => {
+    var id = $(btn).data('qrcode-id');
+    if (id) {
+        if (qrCodeIds.indexOf(id) < 0)
+            qrCodeIds.push(id);
+    }
+});
+$(qrCodeIds).each((idx, val) => {
+    qrCodeIdsStr += val + ',';
+});
+if (qrCodeIdsStr) {
+
+    $.get('/__get/Ajax/GetQrCodeHtml?qrCodeIds=' + qrCodeIdsStr).then((res) => {
+        if (res.Result) {
+            $('body').append(res.Data.Html);
+            var qrCodes = res.Data.QrCodes;
+            btnQrCodes.each((idx, btn) => {
+                var id = $(btn).data('qrcode-id');
+                if (id) {
+                    var uc = $(btn).data('redirect-uc');
+                    $(btn).on('click', function () {
+                        var args = [{ key: 'popup-qrcode', val: id }, { key: 'popup-uc', val: uc }];
+                        var pushUrl = reBuildUrl(args);
+                        window.history.pushState({}, '', pushUrl);
+                    });
+                    var qrCode = qrCodes.filter(x => {
+                        if (x.Id == id)
+                            return x;
+                        return null;
+                    });
+
+                    qrCode = qrCode ? qrCode[0] : null;
+                    if (qrCode) {
+                        $(btn).attr('data-toggle', 'modal');
+                        $(btn).attr('data-target', '#qrcode-modal-' + qrCode.Id);
+                        $(btn).attr('target', qrCode.IsNewTab ? '_blank' : '');
+
+                        var btnMobile = $($(btn)[0].outerHTML);
+                        if (btnMobile.hasClass('d-md-inline-block')) {
+                            btnMobile.removeClass('d-md-inline-block');
+                            btnMobile.removeClass('d-none');
+                            btnMobile.addClass('d-md-none');
+                            btnMobile.addClass('d-inline-block');
+                        } else if (btnMobile.hasClass('btn-block')) {
+                            $(btn).addClass('d-md-block');
+                            $(btn).addClass('d-none');
+                            btnMobile.addClass('d-md-none');
+                            btnMobile.addClass('d-block');
+                        }
+
+                        btnMobile.removeAttr('data-toggle', '');
+                        btnMobile.removeAttr('data-target', '');
+                        btnMobile.removeAttr('data-qrcode-id', '');
+                        btnMobile.attr('href', qrCode.QrLink);
+
+                        $(btn).parent().append(btnMobile);
+                        $(btn).parent().find('.ckemm_cta_des').remove();
+                    }
+                }
+            });
+            $(qrCodeIds).each((idx, val) => {
+                $('#qrcode-modal-' + val).on('hide.bs.modal', function () {
+                    var args = [{ key: 'popup-qrcode', val: null }, { key: 'popup-uc', val: null }];
+                    var pushUrl = reBuildUrl(args);
+                    window.history.pushState({}, '', pushUrl);
+                    console.log(pushUrl);
+                })
+            });
+
+            bindCtaRedirect();
+        }
+
+    });
+} else {
+    bindCtaRedirect();
+}
+
+function bindCtaRedirect() {
+    var btnRedirectCta = $('a[data-redirect-uc]');
+    btnRedirectCta.each((idx, btn) => {
+        var uc = $(btn).data('redirect-uc');
+        if (!uc)
+            return;
+        var to = $(btn).attr('href');
+        var from = location.href;
+        var subPar = from.indexOf("?");
+        if (subPar > -1) {
+            subPar = from.substring(subPar + 1);
+        } else {
+            subPar = '';
+        }
+
+        if (!to || to == 'javascript:void(0)')
+            return;
+        uc = encodeURIComponent(uc);
+        to = encodeURIComponent(to);
+        from = encodeURIComponent(from);
+
+        var urlRedirect = '/redirect-cta?uc=' + uc + '&to=' + to + '&from=' + from + (subPar ? '&' + subPar : '');
+        $(btn).attr('href', urlRedirect);
+        $(btn).addClass('data-redirect-uc');
+    });
+}
+function reBuildUrl(args) {
+    function getItem(key, array) {
+        for (var i = 0; i < array.length; i++) {
+            if (array[i].key == key)
+                return array[i];
+        }
+
+        return null;
+    }
+    var argsBind = [];
+    var rs = location.origin + location.pathname;
+    var params = '';
+    var url = new URL(window.location);
+    url.searchParams.forEach(function (val, key) {
+        var arg = getItem(key, argsBind);
+        if (!arg) {
+            argsBind.push({ key: key, val: val });
+        }
+    });
+
+    args.forEach(function (data, idx) {
+        var arg = getItem(data.key, argsBind);
+        if (!arg) {
+            argsBind.push({ key: data.key, val: data.val });
+        } else {
+            arg.val = data.val;
+        }
+    });
+
+    argsBind.forEach(function (data, idx) {
+        if (data.key && data.val)
+            params += (params ? '&' : '') + (data.key + '=' + data.val);
+    });
+
+    rs += (params ? '?' : '') + params;
+    rs += location.hash;
+    return rs;
+}
